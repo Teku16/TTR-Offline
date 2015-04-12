@@ -71,6 +71,8 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.dnaSpawner = DNASpawnerAI(self)
 
         self.districtName = districtName
+        
+        self.notify.setInfo(True)  # Our AI repository should always log info.
 
         self.zoneAllocator = UniqueIdAllocator(ToontownGlobals.DynamicZonesBegin,
                                                ToontownGlobals.DynamicZonesEnd)
@@ -111,6 +113,7 @@ class ToontownAIRepository(ToontownInternalRepository):
     def handleConnected(self):
         ToontownInternalRepository.handleConnected(self)
         self.districtId = self.allocateChannel()
+        self.notify.info('Creating ToontownDistrictAI(%d)...' % self.districtId)
         self.distributedDistrict = ToontownDistrictAI(self)
         self.distributedDistrict.setName(self.districtName)
         self.distributedDistrict.generateWithRequiredAndId(self.districtId,

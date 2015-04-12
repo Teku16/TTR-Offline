@@ -190,9 +190,9 @@ def loadModels():
     global Preloaded
     preloadAvatars = config.GetBool('preload-avatars', 0)
     if preloadAvatars:
-
+        print 'Preloading Textures...'
         def loadTex(path):
-            tex = loader.loadTexture('/' + path)
+            tex = loader.loadTexture(path)
             tex.setMinfilter(Texture.FTLinearMipmapLinear)
             tex.setMagfilter(Texture.FTLinear)
             Preloaded.append(tex)
@@ -209,6 +209,7 @@ def loadModels():
         for bottom in ToonDNA.GirlBottoms:
             loadTex(bottom[0])
 
+        print 'Preloading Avatars...'
         for key in LegDict.keys():
             fileRoot = LegDict[key]
             model = loader.loadModelNode('/phase_3' + fileRoot + '1000')

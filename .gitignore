@@ -3,5 +3,7 @@
 *.pyo
 *.dll
 *.jpg
+*.exe
 databases
+backups
 settings.json

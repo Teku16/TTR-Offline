@@ -12,7 +12,8 @@ from direct.directnotify import DirectNotifyGlobal
 from toontown.hood import ZoneUtil
 import time
 import random
-from pymongo.errors import AutoReconnect
+if  ConfigVariableBool('want-mongodb', 0):
+    from pymongo.errors import AutoReconnect
 
 class DistributedBuildingMgrAI:
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBuildingMgrAI')
@@ -120,7 +121,11 @@ class DistributedBuildingMgrAI:
          animBldgBlocks)
 
     def findAllLandmarkBuildings(self):
-        buildings = self.load()
+        if config.GetBool('want-mongodb', 0):
+            buildings = self.load()
+        else:
+            buildings = simbase.backups.load('block-info', (self.shard, self.branchID), default={})
+        
         blocks, hqBlocks, gagshopBlocks, petshopBlocks, kartshopBlocks, animBldgBlocks = self.getDNABlockLists()
         for block in blocks:
             self.newBuilding(block, buildings.get(block, None))
@@ -231,20 +236,36 @@ class DistributedBuildingMgrAI:
         return building
 
     def save(self):
-        buildings = []
-        for i in self.__buildings.values():
-            if isinstance(i, HQBuildingAI.HQBuildingAI):
-                continue
-            buildings.append(i.getPickleData())
+        if config.GetBool('want-mongodb', 0):
+            buildings = []
+            for i in self.__buildings.values():
+                if isinstance(i, HQBuildingAI.HQBuildingAI):
+                    continue
+                buildings.append(i.getPickleData())
 
-        street = {'ai': self.shard, 'branch': self.branchID}
-        try:
-            self.air.mongodb.toontown.streets.update(street,
-                                                     {'$setOnInsert': street,
-                                                      '$set': {'buildings': buildings}},
-                                                     upsert=True)
-        except AutoReconnect: # Something happened to our DB, but we can reconnect and retry.
-            taskMgr.doMethodLater(config.GetInt('mongodb-retry-time', 2), self.save, 'retrySave', extraArgs=[])
+            street = {'ai': self.shard, 'branch': self.branchID}
+            try:
+                self.air.mongodb.toontown.streets.update(street,
+                                                         {'$setOnInsert': street,
+                                                          '$set': {'buildings': buildings}},
+                                                         upsert=True)
+            except AutoReconnect: # Something happened to our DB, but we can reconnect and retry.
+                taskMgr.doMethodLater(config.GetInt('mongodb-retry-time', 2), self.save, 'retrySave', extraArgs=[])
+            return
+        backups = {}
+        for blockNumber in self.getSuitBlocks():
+            building = self.getBuilding(blockNumber)
+            backup = {
+                'state': building.fsm.getCurrentState().getName(),
+                'block': building.block,
+                'track': building.track,
+                'difficulty': building.difficulty,
+                'numFloors': building.numFloors,
+                'savedBy': building.savedBy,
+                'becameSuitTime': building.becameSuitTime
+            }
+            backups[blockNumber] = backup
+        simbase.backups.save('block-info', (self.shard, self.branchID), backups)                
 
     def load(self):
         blocks = {}

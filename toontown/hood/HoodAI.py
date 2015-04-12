@@ -13,6 +13,7 @@ class HoodAI:
 
     def __init__(self, air):
         self.air = air
+        print 'Loading Module... '+self.__class__.__name__
 
     def createZone(self):
         #overridable by subclass

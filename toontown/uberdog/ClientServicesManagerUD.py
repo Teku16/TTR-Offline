@@ -7,7 +7,11 @@ from toontown.makeatoon.NameGenerator import NameGenerator
 from toontown.toonbase import TTLocalizer
 from otp.distributed import OtpDoGlobals
 from sys import platform
-from pymongo.errors import AutoReconnect
+if ConfigVariableBool('want-mongodb', 0):
+    from pymongo.errors import AutoReconnect
+else:
+    import dumbdbm
+    import anydbm
 import time
 import hmac
 import hashlib
@@ -23,6 +27,13 @@ REPORT_REASONS = [
 class LocalAccountDB:
     def __init__(self, csm):
         self.csm = csm
+        if not config.GetBool('want-mongodb', False):
+            filename = simbase.config.GetString('accountdb-local-file',
+                                            'databases/dev-accounts.db')
+            if platform == 'darwin':
+                self.dbm = dumbdbm.open(filename, 'c')
+            else:
+                self.dbm = anydbm.open(filename, 'c')
 
     def lookup(self, cookie, callback):
         if cookie.startswith('.'):
@@ -31,14 +42,35 @@ class LocalAccountDB:
                       'reason': 'Invalid cookie specified!'})
             return
 
-        # databaseId must be a uint32, so we'll use the crc32 of the cookie:
-        import zlib
-        databaseId = zlib.crc32(cookie)&0x7FFFFFFF
+        if config.GetBool('want-mongodb', 0):
+            # databaseId must be a uint32, so we'll use the crc32 of the cookie:
+            import zlib
+            databaseId = zlib.crc32(cookie)&0x7FFFFFFF
 
-        callback({'success': True,
-                  'databaseId': databaseId,
-                  'adminAccess': 507,
-                  'betaKeyQuest': 1})
+            callback({'success': True,
+                      'databaseId': databaseId,
+                      'adminAccess': 507,
+                      'betaKeyQuest': 1})
+        else:
+            # See if the cookie is in the DBM:
+            if cookie in self.dbm:
+                # Return it w/ account ID!
+                callback({'success': True,
+                          'accountId': int(self.dbm[cookie]),
+                          'databaseId': cookie,
+                          'adminAccess': 507})
+            else:
+                # Nope, let's return w/o account ID:
+                callback({'success': True,
+                          'accountId': 0,
+                          'databaseId': cookie,
+                          'adminAccess': 507})
+
+    def storeAccountID(self, databaseId, accountId, callback):
+        self.dbm[databaseId] = str(accountId) #semidbm only allows strings
+        if getattr(self.dbm, 'sync', None):
+            self.dbm.sync()
+        callback()
 
 class RemoteAccountDB:
     def __init__(self, csm):
@@ -69,8 +101,9 @@ class RemoteAccountDB:
 
             callback(result)
 
-        self.csm.air.rpc.call('redeemCookie', cookie=cookie,
-                              _callback=rpcCallback, _errback=rpcCallback)
+        if config.GetBool('want-rpc-server', False):
+            self.csm.air.rpc.call('redeemCookie', cookie=cookie,
+                                _callback=rpcCallback, _errback=rpcCallback)
 
 # Constants used by the naming FSM:
 WISHNAME_LOCKED = 0
@@ -135,20 +168,29 @@ class LoginAccountFSM(OperationFSM):
             self.demand('Kill', result.get('reason', 'You have insufficient access to login.'))
             return
 
-        # Try to figure out the accountId using the databaseId.
-        # To do this, query the MongoDB backend and ask it for the account:
-        try:
-            self.csm.air.mongodb.astron.objects.ensure_index('fields.ACCOUNT_ID')
-            account = self.csm.air.mongodb.astron.objects.find_one({'fields.ACCOUNT_ID': self.databaseId})
-        except AutoReconnect:
-            taskMgr.doMethodLater(config.GetInt('mongodb-retry-time', 2), self.__retryLookup, 'retryLookUp-%d' % self.databaseId, extraArgs=[])
-            return
+        if config.GetBool('want-mongodb', 0):
+            # Try to figure out the accountId using the databaseId.
+            # To do this, query the MongoDB backend and ask it for the account:
+            try:
+                self.csm.air.mongodb.astron.objects.ensure_index('fields.ACCOUNT_ID')
+                account = self.csm.air.mongodb.astron.objects.find_one({'fields.ACCOUNT_ID': self.databaseId})
+            except AutoReconnect:
+                taskMgr.doMethodLater(config.GetInt('mongodb-retry-time', 2), self.__retryLookup, 'retryLookUp-%d' % self.databaseId, extraArgs=[])
+                return
 
-        if account:
-            self.accountId = account['_id']
+            if account:
+                self.accountId = account['_id']
+                self.demand('RetrieveAccount')
+            else:
+                self.demand('CreateAccount')
+            return
+        
+        self.accountId = result.get('accountId', 0)
+        if self.accountId:
             self.demand('RetrieveAccount')
         else:
             self.demand('CreateAccount')
+        
 
     def __retryLookup(self):
         try:
@@ -163,6 +205,7 @@ class LoginAccountFSM(OperationFSM):
             self.demand('RetrieveAccount')
         else:
             self.demand('CreateAccount')
+
     def enterRetrieveAccount(self):
         self.csm.air.dbInterface.queryObject(self.csm.air.dbId, self.accountId,
                                              self.__handleRetrieve)
@@ -173,6 +216,13 @@ class LoginAccountFSM(OperationFSM):
             return
 
         self.account = fields
+        self.demand('SetAccount')
+
+    def __handleStored(self, success=True):
+        print '_handleStored'
+        if not success:
+            self.demand('Kill', 'The account server could not save your account DB ID!')
+            return
         self.demand('SetAccount')
 
     def enterCreateAccount(self):
@@ -204,9 +254,26 @@ class LoginAccountFSM(OperationFSM):
         self.csm.air.writeServerEvent('account-created', accId=accountId)
 
         self.accountId = accountId
+        if config.GetBool('want-mongodb', False):
+            self.demand('SetAccount')
+        else:
+            self.demand('StoreAccountID')
+
+    def enterStoreAccountID(self):
+        print 'enterStoreAccountID'
+        self.csm.accountDB.storeAccountID(self.databaseId, self.accountId, self.__handleStored)
+
+    def __handleStored(self, success=True):
+        print '__handleStored'
+        if not success:
+            print 'FAILED!'
+            self.demand('Kill', 'The account server could not save your account DB ID!')
+            return
+        print 'demanding SetAccount'
         self.demand('SetAccount')
 
     def enterSetAccount(self):
+        print 'enterSetAccount'
         # First, if there's anybody on the account, kill 'em for redundant login:
         dg = PyDatagram()
         dg.addServerHeader(self.csm.GetAccountConnectionChannel(self.accountId),
@@ -254,15 +321,18 @@ class LoginAccountFSM(OperationFSM):
         dg.addUint16(2) # ESTABLISHED state. BIG FAT SECURITY RISK!!!
         self.csm.air.send(dg)
 
+        print 'db id is %s' % self.databaseId
         # Update the last login timestamp:
         self.csm.air.dbInterface.updateObject(
             self.csm.air.dbId,
             self.accountId,
             self.csm.air.dclassesByName['AccountUD'],
             {'LAST_LOGIN': time.ctime(),
-             'ACCOUNT_ID': self.databaseId,
+             'ACCOUNT_ID': str(self.databaseId),
              'ADMIN_ACCESS': self.adminAccess,
              'BETA_KEY_QUEST': self.betaKeyQuest})
+        
+        print 'updated object'
 
         # Add a POST_REMOVE to the connection channel to execute the NetMessenger
         # message when the account connection goes RIP on the Client Agent.
@@ -276,6 +346,7 @@ class LoginAccountFSM(OperationFSM):
         self.csm.air.writeServerEvent('account-login', clientId=self.target, accId=self.accountId, webAccId=self.databaseId, cookie=self.cookie)
         self.csm.sendUpdateToChannel(self.target, 'acceptLogin', [])
         self.demand('Off')
+        print 'done'
 
 class CreateAvatarFSM(OperationFSM):
     notify = directNotify.newCategory('CreateAvatarFSM')
@@ -562,8 +633,9 @@ class SetNameTypedFSM(AvatarOperationFSM):
         def callback(result=False):
             self.demand('JudgeName', result)
 
-        self.csm.air.rpc.call('checkBlacklistedName', name=self.name,
-                              _callback=callback, _errback=callback, _retry=True)
+        if config.GetBool('want-rpc-server', False):
+            self.csm.air.rpc.call('checkBlacklistedName', name=self.name,
+                                _callback=callback, _errback=callback, _retry=True)
 
     def enterJudgeName(self, blacklisted):
         status = not blacklisted
@@ -580,9 +652,10 @@ class SetNameTypedFSM(AvatarOperationFSM):
         if self.avId:
             self.csm.air.writeServerEvent('avatar-wishname', avId=self.avId, name=self.name)
 
-            # Fire off the information to the webserver:
-            self.csm.air.rpc.call('submitAvatarName', avId=self.avId, name=self.name,
-                                  _retry=True)
+            if config.GetBool('want-rpc-server', False):
+                # Fire off the information to the webserver:
+                self.csm.air.rpc.call('submitAvatarName', avId=self.avId, name=self.name,
+                                    _retry=True)
 
         self.csm.sendUpdateToAccountId(self.target, 'setNameTypedResp', [self.avId, status])
         self.demand('Off')
@@ -857,7 +930,8 @@ class ClientServicesManagerUD(DistributedObjectGlobalUD):
             if dclass != self.air.dclassesByName['AccountUD']:
                 return
             webId = fields.get('ACCOUNT_ID')
-            self.air.rpc.call('avatarExit', webAccId=webId)
+            if config.GetBool('want-rpc-server', False):
+                self.air.rpc.call('avatarExit', webAccId=webId)
         self.air.dbInterface.queryObject(self.air.dbId, accountId, callback)
 
     def killConnection(self, connId, reason):

@@ -45,7 +45,7 @@ dclass Account {
   AvatarPendingDel ACCOUNT_AV_SET_DEL[] db;
   string CREATED db;
   string LAST_LOGIN db;
-  uint32 ACCOUNT_ID db;
+  string ACCOUNT_ID db;
   uint16 ADMIN_ACCESS db;
   uint8 BETA_KEY_QUEST db;
 };

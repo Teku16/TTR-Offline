@@ -25,7 +25,7 @@ class ClientServicesManager(DistributedObjectGlobal):
         key = config.GetString('csmud-secret', 'streetlamps') + config.GetString('server-version', 'no_version_set') + FIXED_KEY
         sig = hmac.new(key, cookie, hashlib.sha256).digest()
 
-        self.notify.debug('Sending login cookie: ' + cookie)
+        print('Sending login cookie: ' + cookie)
         self.sendUpdate('login', [cookie, sig])
 
     def acceptLogin(self):

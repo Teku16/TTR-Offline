@@ -4,23 +4,30 @@ from direct.distributed.PyDatagram import *
 from otp.rpc.RPCServer import RPCServer
 from otp.distributed.DistributedDirectoryAI import DistributedDirectoryAI
 from otp.distributed.OtpDoGlobals import *
-from ToontownRPCHandler import *
 
 class ToontownUberRepository(ToontownInternalRepository):
+    notify = directNotify.newCategory('ToontownUberRepository')
+    
     def __init__(self, baseChannel, serverId):
         ToontownInternalRepository.__init__(self, baseChannel, serverId, dcSuffix='UD')
         self.wantUD = config.GetBool('want-ud', True)
 
     def handleConnected(self):
         ToontownInternalRepository.handleConnected(self)
+        self.notify.info(True)
         if config.GetBool('want-ClientServicesManagerUD', self.wantUD):
+            self.notify.info('Creating ClientServicesManagerUD...')
             # Only generate the root object once, with the CSMUD.
             rootObj = DistributedDirectoryAI(self)
             rootObj.generateWithRequiredAndId(self.getGameDoId(), 0, 0)
+        self.notify.info('Creating globals...')
         self.createGlobals()
 
         if config.GetBool('want-rpc-server', False):
+            self.notify.info('Starting RPC server...')
+            import ToontownRPCHandler
             self.rpcserver = RPCServer(ToontownRPCHandler(self))
+        self.notify.info('Done.')
 
     def createGlobals(self):
         """

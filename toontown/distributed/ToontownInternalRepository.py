@@ -4,13 +4,14 @@ from otp.rpc.RPCClient import RPCClient
 from direct.distributed.PyDatagram import PyDatagram
 from direct.distributed.MsgTypes import *
 from panda3d.core import *
-import pymongo, urlparse
 import signal
 
-mongodb_url = ConfigVariableString('mongodb-url', 'mongodb://localhost',
+if ConfigVariableBool('want-mongodb', 0):
+    import pymongo, urlparse
+    mongodb_url = ConfigVariableString('mongodb-url', 'mongodb://localhost',
                                    'Specifies the URL of the MongoDB server that'
                                    ' stores all gameserver data.')
-mongodb_replicaset = ConfigVariableString('mongodb-replicaset', '', 'Specifies the replica set of the gameserver data DB.')
+    mongodb_replicaset = ConfigVariableString('mongodb-replicaset', '', 'Specifies the replica set of the gameserver data DB.')
 
 ai_watchdog = ConfigVariableInt('ai-watchdog', 15,
                                 'Specifies the maximum amount of time that a'
@@ -29,17 +30,19 @@ class ToontownInternalRepository(AstronInternalRepository):
         AstronInternalRepository.__init__(self, baseChannel, serverId, dcFileNames,
                                  dcSuffix, connectMethod, threadedNet)
         self._callbacks = {}
+        
+        if ConfigVariableBool('want-mongodb', 0):
+            mongourl = mongodb_url.getValue()
+            replicaset = mongodb_replicaset.getValue()
+            db = (urlparse.urlparse(mongourl).path or '/test')[1:]
+            if replicaset:
+                self.mongo = pymongo.MongoClient(mongourl, replicaset=replicaset)
+            else:
+                self.mongo = pymongo.MongoClient(mongourl)
+            self.mongodb = self.mongo[db]
 
-        mongourl = mongodb_url.getValue()
-        replicaset = mongodb_replicaset.getValue()
-        db = (urlparse.urlparse(mongourl).path or '/test')[1:]
-        if replicaset:
-            self.mongo = pymongo.MongoClient(mongourl, replicaset=replicaset)
-        else:
-            self.mongo = pymongo.MongoClient(mongourl)
-        self.mongodb = self.mongo[db]
-
-        self.rpc = RPCClient()
+        if ConfigVariableBool('want-rpc-server', 0):
+            self.rpc = RPCClient()
 
     def handleConnected(self):
         self.netMessenger.register(0, 'shardStatus')

@@ -443,7 +443,7 @@ typedef int16 pair16[2];
 
 dclass DistributedToon : DistributedPlayer {
   setWantBetaKeyQuest(uint8 = 0) required db airecv;
-  setWebAccountId(uint32 webId = 0) required airecv;
+  setWebAccountId(string webId = "") required airecv;
   setDNAString(blob dnaString) required broadcast ownrecv db;
   setGM(uint8 type = 0) required broadcast ownrecv db;
   setMaxBankMoney(int16 maxMoney = 15000) required broadcast ownrecv db;

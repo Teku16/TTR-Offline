@@ -11,6 +11,8 @@ from direct.interval.IntervalManager import ivalMgr
 from direct.task import Task
 from direct.showbase import EventManager
 from direct.showbase import ExceptionVarDump
+if not ConfigVariableBool('want-mongodb', 0):
+    from otp.otpbase import BackupManager
 import math
 import sys
 import time
@@ -86,6 +88,10 @@ class AIBase:
         self.wantSwitchboardHacks = self.config.GetBool('want-switchboard-hacks', 0)
         self.GEMdemoWhisperRecipientDoid = self.config.GetBool('gem-demo-whisper-recipient-doid', 0)
         self.sqlAvailable = self.config.GetBool('sql-available', 1)
+        if not self.config.GetBool('want-mongodb', 0):
+            self.backups = BackupManager.BackupManager(
+                filepath=self.config.GetString('backups-filepath', 'backups/'),
+                extension=self.config.GetString('backups-extension', '.json'))        
         self.createStats()
         self.restart()
         return

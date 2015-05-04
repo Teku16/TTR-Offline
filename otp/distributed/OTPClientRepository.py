@@ -496,11 +496,9 @@ class OTPClientRepository(ClientRepositoryBase):
         datagram.addUint32(self.hashVal)
         datagram.addString(self.serverVersion)
         self.send(datagram)
-        print 'sent hello'
 
     def handleConnecting(self, msgtype, di):
         if msgtype == CLIENT_HELLO_RESP:
-            print 'handle connecting hello resp'
             self._handleConnected()
         else:
             self.handleMessageType(msgtype, di)
@@ -528,20 +526,17 @@ class OTPClientRepository(ClientRepositoryBase):
 
     @report(types=['args', 'deltaStamp'], dConfigParam='teleport')
     def _handleConnected(self):
-        print 'handleConnected'
         self.launcher.setDisconnectDetailsNormal()
         messenger.send(self.getConnectedEvent())
         self.gotoFirstScreen()
 
     def gotoFirstScreen(self):
-        print 'gotoFirstScreen'
         self.startReaderPollTask()
         #self.startHeartbeat()
         self.loginFSM.request('login')
 
     @report(types=['args', 'deltaStamp'], dConfigParam='teleport')
     def enterLogin(self):
-        print 'login'
         self.sendSetAvatarIdMsg(0)
         dialogClass = OTPGlobals.getGlobalDialogClass()
         self.loggingInBox = dialogClass(message=OTPLocalizer.CRLoggingIn)
@@ -550,13 +545,11 @@ class OTPClientRepository(ClientRepositoryBase):
         self.loginDoneEvent = 'loginDone'
         self.accept(self.loginDoneEvent, self.__handleLoginDone)
         self.csm.performLogin(self.loginDoneEvent)
-        print 'performedLogin'
         self.waitForDatabaseTimeout(requestName='WaitOnCSMLoginResponse')
 
     @report(types=['args', 'deltaStamp'], dConfigParam='teleport')
     def __handleLoginDone(self, doneStatus):
         mode = doneStatus['mode']
-        print '_handleLoginDone with mode %s' % mode
         if mode == 'success':
             self.setIsNotNewInstallation()
             self.loginFSM.request('waitForGameList')
@@ -1671,7 +1664,8 @@ class OTPClientRepository(ClientRepositoryBase):
                 list.append((s.doId,
                  s.name,
                  s.avatarCount,
-                 s.newAvatarCount))
+                 s.newAvatarCount,
+                 s.invasionStatus))
 
         return list
 

@@ -98,6 +98,8 @@ class SuitInvasionManagerAI:
             ToontownGlobals.SuitInvasionEnd, self.suitName,
             self.numSuits, self.specialSuit
         ])
+        # Clear our District's invasion status
+        self.air.districtStats.b_setInvasionStatus(None)
         # Remove the invasion timeout.
         if task is not None:
             task.remove()
@@ -145,6 +147,8 @@ class SuitInvasionManagerAI:
             ToontownGlobals.SuitInvasionBegin, self.suitName,
             self.numSuits, self.specialSuit
         ])
+        #Update our District's Invasion status
+        self.air.districtStats.b_setInvasionStatus(suitName)
         # If the cogs aren't defeated in a set amount of time, the invasion will
         # simply timeout. This was calculated by judging that 1000 cogs should
         # take around 20 minutes, becoming 1.2 seconds per cog.

@@ -420,6 +420,7 @@ dclass ToontownDistrictStats : DistributedObject {
   settoontownDistrictId(uint32 value) broadcast required ram;
   setAvatarCount(uint32 avatarCount) broadcast required ram;
   setNewAvatarCount(uint32 newAvatarCount) broadcast required ram;
+  setInvasionStatus(string suitName) broadcast required ram;  
   setStats : setAvatarCount, setNewAvatarCount;
 };
 

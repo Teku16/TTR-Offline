@@ -937,3 +937,18 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
     def handleQuietZoneDone(self):
         how = base.cr.handlerArgs['how']
         self.fsm.request(how, [base.cr.handlerArgs])
+
+    #Toonfest Button function
+    def goToToonfestNow(self, curZoneId):
+        if localAvatar.hasActiveBoardingGroup():
+            rejectText = TTLocalizer.BoardingCannotLeaveZone
+            localAvatar.elevatorNotifier.showMe(rejectText)
+            return
+        self.requestLeave({'loader': 'safeZoneLoader',
+         'where': 'playground',
+         'how': 'teleportIn',
+         'hoodId': ToontownGlobals.FunnyFarm,
+         'zoneId': ToontownGlobals.FunnyFarm,
+         'shardId': None,
+         'avId': -1})
+        return

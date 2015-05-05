@@ -56,10 +56,12 @@ import LaffMeter
 from toontown.quest import QuestMap
 from toontown.toon.DistributedNPCToonBase import DistributedNPCToonBase
 WantNewsPage = config.GetBool('want-news-page', ToontownGlobals.DefaultWantNewsPageSetting)
+WantToonfest = config.GetBool('want-toonfest', 0)
 from toontown.toontowngui import NewsPageButtonManager
 if WantNewsPage:
     from toontown.shtiker import NewsPage
 AdjustmentForNewsButton = -0.275
+AdjustmentForToonfestButton = -0.225
 ClaraBaseXPos = 0.12
 if (__debug__):
     import pdb
@@ -171,6 +173,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.oldPos = None
             self.questMap = None
             self.prevToonIdx = 0
+            self.__toonfestButton = None
 
     def setDNA(self, dna):
         base.localAvatarStyle = dna
@@ -331,6 +334,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             if self.__catalogNotifyDialog:
                 self.__catalogNotifyDialog.cleanup()
             del self.__catalogNotifyDialog
+            if self.__toonfestButton:
+                self.__toonfestButton.destroy()
+            del self.__toonfestButton
 
             taskMgr.remove('KeepAliveTimeout')
 
@@ -1004,8 +1010,12 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         claraXPos = ClaraBaseXPos
         notifyXPos = CatalogNotifyDialog.CatalogNotifyBaseXPos
         if show:
-            claraXPos += AdjustmentForNewsButton
-            notifyXPos += AdjustmentForNewsButton
+            if WantNewsPage:
+                claraXPos += AdjustmentForNewsButton
+                notifyXPos += AdjustmentForNewsButton
+            elif WantToonfest:
+                claraXPos += AdjustmentForToonfestButton
+                notifyXPos += AdjustmentForToonfestButton
         newPos = (claraXPos - 0.1, 1.0, -0.63)
         self.__clarabelleButton.setPos(newPos)
         if self.__catalogNotifyDialog == None or self.__catalogNotifyDialog.frame == None:
@@ -1033,6 +1043,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             oldPos = ((claraXPos, 1.0, -0.63))
             newScale = oldScale * ToontownGlobals.NewsPageScaleAdjust
             newPos = (claraXPos - 0.1, 1.0, -0.63)
+        elif WantToonfest:
+            claraXPos += AdjustmentForToonfestButton
+            newPos = (claraXPos, 1.0, -0.63)
         self.__clarabelleButton = DirectButton(relief=None, image=circle, text='', text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=0.1, text_pos=(-1.06, 1.06), text_font=ToontownGlobals.getInterfaceFont(), pos=newPos, scale=newScale, command=self.__handleClarabelleButton)
         self.__clarabelleButton.reparentTo(base.a2dTopRight, DGG.BACKGROUND_SORT_INDEX - 1)
         button = self.__clarabelleButton.stateNodePath[0]
@@ -1049,7 +1062,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.__clarabelleButton['text'] = ['', TTLocalizer.CatalogNewCatalogButton, TTLocalizer.CatalogNewCatalogButton]
         if not self.mailboxNotify and not self.awardNotify and self.catalogNotify == ToontownGlobals.OldItems and (self.simpleMailNotify != ToontownGlobals.NoItems or self.inviteMailNotify != ToontownGlobals.NoItems):
             self.__clarabelleButton['text'] = ['', TTLocalizer.MailNewMailButton, TTLocalizer.MailNewMailButton]
-        if self.newsButtonMgr.isNewIssueButtonShown() and WantNewsPage:
+        if (self.newsButtonMgr.isNewIssueButtonShown() and WantNewsPage) or WantToonfest:
             self.clarabelleNewsPageCollision(True)
         self.__clarabelleButton.show()
         self.__clarabelleFlash.resume()
@@ -1168,6 +1181,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         self.bFriendsList.hide()
         self.hideFurnitureGui()
         self.hideClarabelleGui()
+        self.hideToonfestButton()
         clarabelleHidden = 1
         self.ignore(ToontownGlobals.FriendsListHotkey)
         if self.friendsListButtonActive and self.friendsListButtonObscured <= 0:
@@ -1186,6 +1200,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                         newItemsInMailbox = self.mailboxNotify == ToontownGlobals.NewItems or self.awardNotify == ToontownGlobals.NewItems
                         self.showClarabelleGui(newItemsInMailbox)
                         clarabelleHidden = 0
+            if self.isTeleportAllowed():
+                self.showToonfestButton()
         if clarabelleHidden:
             if self.__catalogNotifyDialog:
                 self.__catalogNotifyDialog.cleanup()
@@ -1976,3 +1992,31 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         self.sendUpdate('keepAlive', [])
         taskMgr.remove(self.uniqueName('KeepAliveTimeout'))
         taskMgr.doMethodLater(config.GetInt('keep-alive-delay', 30), self.keepAliveCheck, self.uniqueName('KeepAliveTimeout'), extraArgs=[])
+
+    # Toonfest Button
+    def loadToonfestButton(self):
+        if self.__toonfestButton:
+            return
+        gui = loader.loadModel('phase_3.5/models/gui/toonfest_gui')
+        icon = gui.find('**/toonfestbutton')
+        gui.removeNode()
+        scale = 0.25
+        pos = (-0.42, 0, -0.12)
+        self.__toonfestButton = DirectButton(relief=None, image=icon, text='', text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=0.23, text_pos=(0, 0.1), text_font=ToontownGlobals.getInterfaceFont(), pos=pos, scale=scale, command=self.__handleToonfestButton)
+        self.__toonfestButton.reparentTo(base.a2dTopRight, DGG.BACKGROUND_SORT_INDEX - 1)
+
+    def showToonfestButton(self):
+        self.loadToonfestButton()
+        self.__toonfestButton['text'] = ['', TTLocalizer.ToonFestButtonText, TTLocalizer.ToonFestButtonText]
+        self.__toonfestButton.show()
+
+    def hideToonfestButton(self):
+        if self.__toonfestButton:
+            self.__toonfestButton.hide()
+
+    def __handleToonfestButton(self):
+        place = base.cr.playGame.getPlace()
+        if place == None:
+            self.notify.warning('Tried to go to Toonfest, but place is None.')
+            return
+        place.goToToonfestNow(self.lastHood)        

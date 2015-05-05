@@ -252,4 +252,12 @@ SafeZoneTreasureSpawns = {
         10, # Rate
         4 # Maximum
     ),
+    ToontownGlobals.FunnyFarm: (
+        TreasureE, 5,
+        [
+            (0, 0, 0),
+            (0, 30, 12),
+        ],
+        1,
+        1)
 }

@@ -64,6 +64,10 @@ from panda3d.core import PStatClient
 from otp.ai.MagicWordGlobal import *
 import otp.ai.DiagnosticMagicWords
 
+# ToonFest!
+if config.GetBool('want-toonfest', False):
+    from toontown.hood import TFHoodAI
+
 class ToontownAIRepository(ToontownInternalRepository):
     def __init__(self, baseChannel, serverId, districtName):
         ToontownInternalRepository.__init__(self, baseChannel, serverId, dcSuffix='AI')
@@ -226,6 +230,10 @@ class ToontownAIRepository(ToontownInternalRepository):
         clearQueue()
         self.hoods.append(GZHoodAI.GZHoodAI(self))
         clearQueue()
+
+        if config.GetBool('want-toonfest', False):
+            self.hoods.append(TFHoodAI.TFHoodAI(self))
+            clearQueue()
 
         if config.GetBool('want-sbhq', True):
             self.hoods.append(SellbotHQAI.SellbotHQAI(self))

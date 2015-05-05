@@ -437,10 +437,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         except:
             self.defaultZone = ToontownCentral
             return
-
-        if ZoneUtil.getCanonicalHoodId(zoneId) == ToontownGlobals.FunnyFarm:
-            self.defaultZone = ToontownGlobals.ToontownCentral
-            return
         if not base.cr.isPaid() or launcher and not launcher.getPhaseComplete(hoodPhase):
             self.defaultZone = ToontownGlobals.ToontownCentral
         else:
@@ -2732,3 +2728,7 @@ def sleep():
 @magicWord(category=CATEGORY_GUI)
 def gardenGame():
     base.localAvatar.game = GardenDropGame.GardenDropGame()
+
+@magicWord(category=CATEGORY_MODERATION)
+def toonfest():
+    spellbook.getInvoker().magicTeleportInitiate(7000, 7000)

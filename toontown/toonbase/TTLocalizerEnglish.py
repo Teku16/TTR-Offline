@@ -132,7 +132,7 @@ TheBrrrgh = ('to', 'in', lTheBrrrgh)
 MinniesMelodyland = ('to', 'in', lMinniesMelodyland)
 DaisyGardens = ('to', 'in', lDaisyGardens)
 OutdoorZone = ('to', 'in', lOutdoorZone)
-FunnyFarm = ('to the', 'in the', 'Funny Farm')
+FunnyFarm = ('to the', 'in the', 'Toonfest')
 GoofySpeedway = ('to', 'in', lGoofySpeedway)
 DonaldsDreamland = ('to', 'in', lDonaldsDreamland)
 BossbotHQ = ('to', 'in', 'Bossbot HQ')
@@ -4804,6 +4804,7 @@ CdrResultAlreadyBeingWorn = "You've already received this item, and you are wear
 CdrResultAlreadyReceived = "You've already received this item."
 CdrResultTooManyFails = "We're sorry. You've tried to enter an incorrect code too many times. Please try again after some time."
 CdrResultServiceUnavailable = "We're sorry. This feature is temporarily unavailable. Please try again during your next login."
+CdrResultIneligible = "We're sorry, but you aren't eligible for this item!"
 TrackPageTitle = 'Gag Track Training'
 TrackPageShortTitle = 'Gag Training'
 TrackPageSubtitle = 'Complete ToonTasks to learn how to use new gags!'
@@ -9870,3 +9871,5 @@ InteractivePropTrackBonusTerms = {0: 'Super Toon-Up!',
  5: 'Super Squirt!',
  6: ''}
 PlayingCardUnknown = 'Card Name is unknown'
+
+ToonFestButtonText = 'Take me to\nToonFest!'

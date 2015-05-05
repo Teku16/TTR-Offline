@@ -79,3 +79,7 @@ force-holiday-decorations 6
 want-arg-manager #f
 want-mega-invasions #f
 mega-invasion-cog-type tm
+want-toonfest #t
+want-bbqhq #f
+
+
